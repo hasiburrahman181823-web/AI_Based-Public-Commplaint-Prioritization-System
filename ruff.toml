@@ -1,0 +1,6 @@
+target-version = "py312"
+exclude = ["frontend", "ml_training/data", "artifacts", "results", ".venv", ".cache"]
+
+[lint]
+# Correctness lint for the existing research repository; no mass formatting churn.
+select = ["E9", "F63", "F7", "F82"]

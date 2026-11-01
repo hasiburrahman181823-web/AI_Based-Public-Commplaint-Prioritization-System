@@ -1,0 +1,88 @@
+# Local configuration / credentials
+.env
+.env.*
+!.env.example
+
+# Python and editor artifacts
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Dataset contents, generated splits and trained weights
+ml_training/data/raw/*
+!ml_training/data/raw/.gitkeep
+ml_training/data/interim/*
+!ml_training/data/interim/.gitkeep
+ml_training/data/processed/*
+!ml_training/data/processed/.gitkeep
+ml_training/artifacts/*
+!ml_training/artifacts/.gitkeep
+*.log
+
+# Phase 2 datasets and local annotation database
+ml_training/data/multilingual/*
+!ml_training/data/multilingual/.gitkeep
+ml_training/data/pairs/*
+!ml_training/data/pairs/.gitkeep
+ml_training/data/natural_test/*
+!ml_training/data/natural_test/.gitkeep
+ml_training/data/pairs_gold/*
+!ml_training/data/pairs_gold/.gitkeep
+ml_training/data/auxiliary/*
+!ml_training/data/auxiliary/.gitkeep
+annotation/*.sqlite3*
+annotation/*.db*
+
+# Phase 3 experiment outputs and pretrained model caches
+artifacts/*
+!artifacts/.gitkeep
+results/*
+!results/.gitkeep
+artifacts_*/
+results_*/
+.cache/
+*.joblib
+
+# Phase 6 private operational state and human feedback exports
+backend/data/*
+!backend/data/.gitkeep
+backend/exports/*
+!backend/exports/.gitkeep
+backend/*.sqlite3*
+backend/*.db*
+
+# Phase 7 installed dependencies, compiled assets and browser-test output
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/
+frontend/.vite/
+frontend/.vitest/
+*.tsbuildinfo
+.npmrc
+
+# Databases and private deployment material, regardless of folder.
+*.db
+*.db-*
+*.sqlite
+*.sqlite3*
+deploy/local.*.env
+deploy/artifacts/*
+!deploy/artifacts/.gitkeep
+*.safetensors
+*.pt
+*.pth
+*.ckpt

@@ -1,0 +1,6 @@
+# Optional neural fine-tuning environment. Install core requirements first.
+# Choose the appropriate CUDA-enabled Torch wheel for your GPU/Colab runtime.
+torch==2.15.0
+transformers==5.22.1
+sentencepiece==0.2.2
+safetensors==0.8.0

@@ -1,0 +1,6 @@
+-r requirements.txt
+sentence-transformers==5.7.0
+transformers==5.22.1
+# Research environment: select a compatible CPU/CUDA wheel for your platform.
+# The backend Docker image instead uses requirements-runtime-embeddings.lock.
+torch==2.15.0

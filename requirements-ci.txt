@@ -1,0 +1,9 @@
+# Install the core runtime lock first in Linux CI, then these verification tools.
+pytest==9.2.0
+httpx==0.28.1
+httpx2==2.16.0
+pyarrow==25.0.1
+matplotlib==3.11.2
+openpyxl==3.1.5
+ruff==0.17.3
+pip-audit==2.10.1

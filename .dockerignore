@@ -1,0 +1,36 @@
+# Start with nothing. The following are the entire backend build context.
+**
+!Dockerfile
+!requirements-runtime.lock
+!requirements-runtime-embeddings.lock
+!alembic.ini
+!backend/
+!backend/*.py
+!backend/scripts/
+!backend/scripts/*.py
+!ml/
+!ml/*.py
+!ml/*.json
+!ml_training/
+!ml_training/*.py
+!ml_training/scripts/
+!ml_training/scripts/*.py
+!config/
+!config/*.yaml
+!migrations/
+!migrations/**
+!deploy/
+!deploy/*.py
+!deploy/artifacts/
+!deploy/artifacts/**
+# Protect against accidental secrets inside the explicitly staged artifact tree.
+**/.env
+**/.env.*
+**/*.env
+**/*credentials*
+**/*secret*
+**/*.sqlite*
+**/*.db*
+**/__pycache__/**
+**/*.pyc
+**/.git/**

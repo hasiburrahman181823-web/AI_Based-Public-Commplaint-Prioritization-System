@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "description": "Extensible starter gazetteer. IDs describe areas; hierarchy is not a coordinate or kilometre distance model.",
+  "areas": [
+    {"id": "dhaka", "name": "Dhaka", "parent_id": null, "aliases": ["ঢাকা", "dhaka", "dacca"]},
+    {"id": "dhaka_mirpur", "name": "Mirpur", "parent_id": "dhaka", "aliases": ["মিরপুর", "mirpur", "meerpur"]},
+    {"id": "dhaka_mirpur_1", "name": "Mirpur 1", "parent_id": "dhaka_mirpur", "aliases": ["মিরপুর ১", "মিরপুর এক", "mirpur 1", "mirpur one", "meerpur 1"]},
+    {"id": "dhaka_mirpur_2", "name": "Mirpur 2", "parent_id": "dhaka_mirpur", "aliases": ["মিরপুর ২", "মিরপুর দুই", "mirpur 2", "mirpur two", "meerpur 2"]},
+    {"id": "dhaka_mirpur_10", "name": "Mirpur 10", "parent_id": "dhaka_mirpur", "aliases": ["মিরপুর ১০", "মিরপুর দশ", "মিরপুর ১০ নম্বর", "mirpur 10", "mirpur ten", "mirpur dosh", "meerpur 10"]},
+    {"id": "dhaka_mirpur_11", "name": "Mirpur 11", "parent_id": "dhaka_mirpur", "aliases": ["মিরপুর ১১", "মিরপুর এগারো", "mirpur 11", "mirpur eleven", "meerpur 11"]},
+    {"id": "dhaka_mirpur_12", "name": "Mirpur 12", "parent_id": "dhaka_mirpur", "aliases": ["মিরপুর ১২", "মিরপুর বারো", "mirpur 12", "mirpur twelve", "meerpur 12"]},
+    {"id": "dhaka_mohammadpur", "name": "Mohammadpur", "parent_id": "dhaka", "aliases": ["মোহাম্মদপুর", "মহম্মদপুর", "mohammadpur", "mohammodpur", "mohammedpur", "mohamadpur", "mohmodpur"]},
+    {"id": "dhaka_uttara", "name": "Uttara", "parent_id": "dhaka", "aliases": ["উত্তরা", "uttara", "utara"]},
+    {"id": "dhaka_uttara_sector_4", "name": "Uttara Sector 4", "parent_id": "dhaka_uttara", "aliases": ["উত্তরা সেক্টর ৪", "উত্তরা ৪ নম্বর সেক্টর", "uttara sector 4", "uttara sec 4", "uttara sektor 4", "utara sector 4", "uttara sector four"]},
+    {"id": "dhaka_uttara_sector_7", "name": "Uttara Sector 7", "parent_id": "dhaka_uttara", "aliases": ["উত্তরা সেক্টর ৭", "উত্তরা ৭ নম্বর সেক্টর", "uttara sector 7", "uttara sec 7", "uttara sektor 7", "utara sector 7", "uttara sector seven"]},
+    {"id": "dhaka_dhanmondi", "name": "Dhanmondi", "parent_id": "dhaka", "aliases": ["ধানমন্ডি", "dhanmondi", "dhanmonddi", "dhanmondy"]},
+    {"id": "dhaka_badda", "name": "Badda", "parent_id": "dhaka", "aliases": ["বাড্ডা", "badda", "bada"]},
+    {"id": "dhaka_gulshan", "name": "Gulshan", "parent_id": "dhaka", "aliases": ["গুলশান", "gulshan", "gulshaan"]},
+    {"id": "dhaka_banani", "name": "Banani", "parent_id": "dhaka", "aliases": ["বনানী", "বনানি", "banani", "bonani"]}
+  ]
+}

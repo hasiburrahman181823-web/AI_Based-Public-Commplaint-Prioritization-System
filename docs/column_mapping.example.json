@@ -1,0 +1,6 @@
+{
+  "text": "complaint_text",
+  "category": "label",
+  "severity": "priority",
+  "original_id": "parent_id"
+}

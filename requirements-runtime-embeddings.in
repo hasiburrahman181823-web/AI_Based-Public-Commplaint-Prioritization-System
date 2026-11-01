@@ -1,0 +1,8 @@
+-r requirements-runtime.in
+# Exact CPU-only Linux x86_64 wheel, from PyTorch's official CPU wheel index.
+# Never replace this with the default PyPI torch wheel: that can pull CUDA dependencies.
+torch @ https://download.pytorch.org/whl/cpu/torch-2.15.0%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl#sha256=0955c7e3446326293f48af18fad67872fa31dee5a36a87690eb9e5be8b465be3
+sentence-transformers==5.7.0
+transformers==5.22.1
+# Explicit for cross-host resolution: huggingface-hub enables Xet on Linux x86_64.
+hf-xet==1.8.0

@@ -1,0 +1,78 @@
+name: banglapsg
+x-api-build: &api-build
+  context: .
+  target: ${BACKEND_DOCKER_TARGET:-runtime-lite}
+
+services:
+  db:
+    image: postgres:16.15-bookworm@sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938
+    env_file:
+      - path: ./deploy/local.postgres.env
+        format: raw
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4.8-alpine@sha256:7aec734b2bb298a1d769fd8729f13b8514a41bf90fcdd1f38ec52267fbaa8ee6
+    env_file:
+      - path: ./deploy/local.redis.env
+        format: raw
+    command: ["sh", "-ec", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    build: *api-build
+    image: banglapsg-api:local
+    platform: linux/amd64
+    env_file:
+      - path: ./deploy/local.backend.env
+        format: raw
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build: *api-build
+    image: banglapsg-api:local
+    platform: linux/amd64
+    env_file:
+      - path: ./deploy/local.backend.env
+        format: raw
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./artifacts:/app/artifacts:ro
+      - api_cache:/home/user/cache
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  api_cache:

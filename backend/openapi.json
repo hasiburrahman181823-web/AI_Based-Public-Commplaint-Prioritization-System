@@ -1,0 +1,2119 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "BanglaPSG Complaints API",
+    "description": "Anonymous complaint submission and preview; JWT-protected administration. Run migrations before startup. Complaint/group reviews require expected_version and reason; privacy deletion previews before explicit application.",
+    "version": "1.2.0"
+  },
+  "paths": {
+    "/auth/token": {
+      "post": {
+        "tags": [
+          "Admin authentication"
+        ],
+        "summary": "Login",
+        "description": "Exchange configured admin credentials for a short-lived bearer JWT.",
+        "operationId": "login_auth_token_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminLogin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analyze": {
+      "post": {
+        "tags": [
+          "Citizen"
+        ],
+        "summary": "Analyze",
+        "description": "Preview analysis without writing complaints, reviews or audit records.",
+        "operationId": "analyze_analyze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalyzeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/complaints": {
+      "post": {
+        "tags": [
+          "Citizen"
+        ],
+        "summary": "Submit",
+        "description": "Persist a report and propose membership only after area/time guards.",
+        "operationId": "submit_complaints_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplaintCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplaintView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Complaints"
+        ],
+        "summary": "List Complaints",
+        "description": "Filter and paginate reports. Reads require JWT unless redacted reads are enabled.",
+        "operationId": "list_complaints_complaints_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Priority"
+            }
+          },
+          {
+            "name": "area",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Area"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "submitted",
+                    "in_review",
+                    "confirmed",
+                    "in_progress",
+                    "resolved",
+                    "rejected"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "group_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Group Id"
+            }
+          },
+          {
+            "name": "review_required",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Review Required"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 25,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplaintPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/complaints/{complaint_id}": {
+      "get": {
+        "tags": [
+          "Complaints"
+        ],
+        "summary": "Get Complaint",
+        "operationId": "get_complaint_complaints__complaint_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "complaint_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Complaint Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplaintView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Admin reviews"
+        ],
+        "summary": "Patch Complaint",
+        "description": "Confirm/override current fields; preserve immutable automatic analysis as feedback provenance.",
+        "operationId": "patch_complaint_complaints__complaint_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "complaint_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Complaint Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplaintPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplaintView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tracking/{complaint_id}": {
+      "get": {
+        "tags": [
+          "Citizen"
+        ],
+        "summary": "Tracking",
+        "description": "Return minimal status for a random tracking ID; never disclose report/contact content.\n\nThe ID is a capability: keep it private. There is deliberately no public\ntracking directory/search. Anonymous users cannot retrieve full reports.",
+        "operationId": "tracking_tracking__complaint_id__get",
+        "parameters": [
+          {
+            "name": "complaint_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Complaint Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/duplicate-groups": {
+      "get": {
+        "tags": [
+          "Duplicate groups"
+        ],
+        "summary": "List Groups",
+        "operationId": "list_groups_duplicate_groups_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 25,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "group_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Group Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/duplicate-groups/{group_id}": {
+      "get": {
+        "tags": [
+          "Duplicate groups"
+        ],
+        "summary": "Get Group",
+        "operationId": "get_group_duplicate_groups__group_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Group Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/duplicate-groups/{group_id}/confirm": {
+      "post": {
+        "tags": [
+          "Admin reviews"
+        ],
+        "summary": "Confirm Group",
+        "description": "Confirm membership, optionally moving explicitly reviewed complaint IDs into this group.",
+        "operationId": "confirm_group_duplicate_groups__group_id__confirm_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Group Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupConfirm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/duplicate-groups/{group_id}/split": {
+      "post": {
+        "tags": [
+          "Admin reviews"
+        ],
+        "summary": "Split Group",
+        "description": "Move a proper subset to a separate reviewed partition; automation cannot undo it.",
+        "operationId": "split_group_duplicate_groups__group_id__split_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Group Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupSplit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSplitResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stats": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Stats",
+        "description": "Aggregate counts only; never expose complaint wording or admin credentials.",
+        "operationId": "stats_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/data-deletion": {
+      "post": {
+        "tags": [
+          "Admin privacy maintenance"
+        ],
+        "summary": "Privacy Deletion",
+        "description": "Preview by default. Explicit apply deletes selected reports and sanitizes linked copies.\n\nBackups, exported files, other worker memory and separately trained models\nrequire the operator's maintenance runbook; this is not machine unlearning.",
+        "operationId": "privacy_deletion_admin_data_deletion_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataDeletionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/analytics": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Analytics",
+        "description": "Administrator chart aggregates across all rows, independent of queue pagination.\n\nDaily counts describe current priorities by report creation date. They\nare not a history of past model decisions or resolution times.",
+        "operationId": "analytics_analytics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Health",
+        "description": "Readiness is degraded in development when trained artifacts are absent.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AdminLogin": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "AdminLogin"
+      },
+      "AnalysisResponse": {
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "priority_score": {
+            "type": "number",
+            "title": "Priority Score"
+          },
+          "priority_label": {
+            "type": "string",
+            "title": "Priority Label"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence",
+            "description": "Minimum calibrated category/severity top probability; not a calibrated joint, priority or duplicate probability."
+          },
+          "explanation": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Explanation"
+          },
+          "review_required": {
+            "type": "boolean",
+            "title": "Review Required"
+          },
+          "duplicate_candidates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Duplicate Candidates",
+            "description": "Redacted score/guard suggestions. Other citizens' record IDs and metadata are omitted."
+          },
+          "lang": {
+            "type": "string",
+            "enum": [
+              "bn",
+              "en",
+              "banglish"
+            ],
+            "title": "Lang"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "category",
+          "severity",
+          "priority_score",
+          "priority_label",
+          "confidence",
+          "explanation",
+          "review_required",
+          "duplicate_candidates",
+          "lang"
+        ],
+        "title": "AnalysisResponse",
+        "description": "Core triage contract with additional research/provenance fields preserved."
+      },
+      "AnalyticsResponse": {
+        "properties": {
+          "total_complaints": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Complaints"
+          },
+          "total_groups": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Groups"
+          },
+          "needs_human_review": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Needs Human Review"
+          },
+          "by_category": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Category"
+          },
+          "by_priority": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Priority"
+          },
+          "by_status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Status"
+          },
+          "by_area": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Area"
+          },
+          "by_language": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Language"
+          },
+          "priority_over_time": {
+            "items": {
+              "$ref": "#/components/schemas/PriorityDay"
+            },
+            "type": "array",
+            "title": "Priority Over Time"
+          },
+          "review_workload": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewWorkload"
+            },
+            "type": "array",
+            "title": "Review Workload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_complaints",
+          "total_groups",
+          "needs_human_review",
+          "by_category",
+          "by_priority",
+          "by_status",
+          "by_area",
+          "by_language",
+          "priority_over_time",
+          "review_workload"
+        ],
+        "title": "AnalyticsResponse"
+      },
+      "AnalyzeRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "lang": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "bn",
+                  "en",
+                  "banglish"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lang"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "contact": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact"
+          },
+          "timestamp": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "AnalyzeRequest"
+      },
+      "ComplaintCreate": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "lang": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "bn",
+                  "en",
+                  "banglish"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lang"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "contact": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact"
+          },
+          "timestamp": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "ComplaintCreate"
+      },
+      "ComplaintPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ComplaintView"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Page Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "ComplaintPage"
+      },
+      "ComplaintPatch": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Reason"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "submitted",
+                  "in_review",
+                  "confirmed",
+                  "in_progress",
+                  "resolved",
+                  "rejected"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "priority_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority Score"
+          },
+          "priority_label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority Label"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version",
+          "reason"
+        ],
+        "title": "ComplaintPatch"
+      },
+      "ComplaintView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "lang": {
+            "type": "string",
+            "enum": [
+              "bn",
+              "en",
+              "banglish"
+            ],
+            "title": "Lang"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "priority_score": {
+            "type": "number",
+            "title": "Priority Score"
+          },
+          "priority_label": {
+            "type": "string",
+            "title": "Priority Label"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "submitted",
+              "in_review",
+              "confirmed",
+              "in_progress",
+              "resolved",
+              "rejected"
+            ],
+            "title": "Status"
+          },
+          "area_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Id"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version",
+            "description": "Use as expected_version in an admin PATCH."
+          },
+          "group_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Version",
+            "description": "Current group version, if the complaint belongs to a group."
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At",
+            "description": "UTC ISO-8601 creation timestamp."
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At",
+            "description": "UTC ISO-8601 update timestamp."
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text",
+            "description": "Omitted from optional public reads."
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location",
+            "description": "Submitted location; omitted from optional public reads."
+          },
+          "contact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact",
+            "description": "Optional private contact. Only authenticated administrator reads include this field."
+          },
+          "timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp",
+            "description": "Submitted timestamp, with explicit timezone."
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence",
+            "description": "Calibrated classification confidence, not priority or duplicate confidence."
+          },
+          "review_required": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Required"
+          },
+          "analysis": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis",
+            "description": "Automatic analysis snapshot. Citizen receipts redact other reports' identifiers and metadata."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "lang",
+          "category",
+          "severity",
+          "priority_score",
+          "priority_label",
+          "status",
+          "area_id",
+          "group_id",
+          "version",
+          "group_version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ComplaintView",
+        "description": "Submission receipt or admin record; optional fields require read access."
+      },
+      "DataDeletionRequest": {
+        "properties": {
+          "complaint_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Complaint Ids"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Reason"
+          },
+          "apply": {
+            "type": "boolean",
+            "title": "Apply",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "complaint_ids",
+          "reason"
+        ],
+        "title": "DataDeletionRequest"
+      },
+      "GroupConfirm": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Reason"
+          },
+          "complaint_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 1000,
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Complaint Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version",
+          "reason"
+        ],
+        "title": "GroupConfirm"
+      },
+      "GroupPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GroupView"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Page Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "GroupPage"
+      },
+      "GroupSplit": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Reason"
+          },
+          "complaint_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Complaint Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version",
+          "reason",
+          "complaint_ids"
+        ],
+        "title": "GroupSplit"
+      },
+      "GroupSplitResult": {
+        "properties": {
+          "original_group": {
+            "$ref": "#/components/schemas/GroupView"
+          },
+          "new_group": {
+            "$ref": "#/components/schemas/GroupView"
+          }
+        },
+        "type": "object",
+        "required": [
+          "original_group",
+          "new_group"
+        ],
+        "title": "GroupSplitResult"
+      },
+      "GroupView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "confirmed",
+              "reviewed_split"
+            ],
+            "title": "Status"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version",
+            "description": "Use as expected_version for confirm or split."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Size"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          },
+          "confirmed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed By",
+            "description": "Admin identity; omitted from optional public reads."
+          },
+          "complaint_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Complaint Ids",
+            "description": "Up to 1,000 sorted member IDs; omitted from optional public reads."
+          },
+          "members_truncated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Members Truncated",
+            "description": "True when the member-ID list is capped at 1,000."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "version",
+          "size",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "GroupView"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "degraded",
+              "unavailable"
+            ],
+            "title": "Status"
+          },
+          "database": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Database"
+          },
+          "rate_limit_storage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Limit Storage"
+          },
+          "ml": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MLReadiness"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "HealthResponse"
+      },
+      "MLReadiness": {
+        "properties": {
+          "ready": {
+            "type": "boolean",
+            "title": "Ready"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "degraded"
+            ],
+            "title": "Status"
+          },
+          "classifiers_loaded": {
+            "type": "boolean",
+            "title": "Classifiers Loaded"
+          },
+          "duplicate_model_loaded": {
+            "type": "boolean",
+            "title": "Duplicate Model Loaded"
+          },
+          "review_policy_loaded": {
+            "type": "boolean",
+            "title": "Review Policy Loaded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ready",
+          "status",
+          "classifiers_loaded",
+          "duplicate_model_loaded",
+          "review_policy_loaded"
+        ],
+        "title": "MLReadiness"
+      },
+      "PriorityDay": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date",
+            "description": "UTC creation date, YYYY-MM-DD."
+          },
+          "priority": {
+            "type": "string",
+            "title": "Priority"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "priority",
+          "count"
+        ],
+        "title": "PriorityDay"
+      },
+      "ReviewWorkload": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "review_required": {
+            "type": "boolean",
+            "title": "Review Required"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "review_required",
+          "count"
+        ],
+        "title": "ReviewWorkload"
+      },
+      "StatsResponse": {
+        "properties": {
+          "total_complaints": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Complaints"
+          },
+          "total_groups": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Groups"
+          },
+          "needs_human_review": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Needs Human Review"
+          },
+          "by_category": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Category"
+          },
+          "by_priority": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Priority"
+          },
+          "by_status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Status"
+          },
+          "by_area": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Area"
+          },
+          "by_language": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Language"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_complaints",
+          "total_groups",
+          "needs_human_review",
+          "by_category",
+          "by_priority",
+          "by_status",
+          "by_area",
+          "by_language"
+        ],
+        "title": "StatsResponse"
+      },
+      "TokenResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "const": "bearer",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Expires In"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "access_token",
+          "expires_in"
+        ],
+        "title": "TokenResponse"
+      },
+      "TrackingResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "submitted",
+              "in_review",
+              "confirmed",
+              "in_progress",
+              "resolved",
+              "rejected"
+            ],
+            "title": "Status"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "priority_score": {
+            "type": "number",
+            "title": "Priority Score"
+          },
+          "priority_label": {
+            "type": "string",
+            "title": "Priority Label"
+          },
+          "review_required": {
+            "type": "boolean",
+            "title": "Review Required"
+          },
+          "area_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Id"
+          },
+          "lang": {
+            "type": "string",
+            "enum": [
+              "bn",
+              "en",
+              "banglish"
+            ],
+            "title": "Lang"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "category",
+          "severity",
+          "priority_score",
+          "priority_label",
+          "review_required",
+          "area_id",
+          "lang",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TrackingResponse",
+        "description": "Possession of the random tracking ID permits only this minimal summary."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "description": "Admin JWT from POST /auth/token",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

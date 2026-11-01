@@ -1,0 +1,835 @@
+{
+  "info": {
+    "_postman_id": "138cd06b-6385-4e4f-8459-6c125f337b39",
+    "name": "BanglaPSG API and security maintenance",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Run on a disposable local database. Select the supplied environment and fill local admin credentials. Steps 04-07 submit synthetic examples. Steps 12-13 are real human review writes: confirmation explicitly moves all three Mirpur reports into one group after review, and splitting separates the English report. These actions demonstrate transport and persistence, not real-model accuracy. Private complaint reads require admin JWTs by default. No credentials or tokens are bundled. Versions captured by scripts can still become stale after concurrent writes; refresh and review on 409. New submissions/preview are capped at 1000 characters. Default per-IP limits: submission 5/minute, analyze 10/minute, login 3/minute; rapid repeats may return 429. Production API documentation is disabled. Deletion requests are preview-first and must be manually scoped; apply is an irreversible administration write."
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "item": [
+    {
+      "name": "01 Health",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [],
+        "url": "{{base_url}}/health",
+        "description": "Development without trained artifacts may return degraded status. Production requires ready artifacts and configured dependencies."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "02 Admin login",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/auth/token",
+        "description": "Enter your private admin_username and admin_password in the selected local environment first. Credentials are JSON-escaped in the pre-request script; no password is bundled.",
+        "body": {
+          "mode": "raw",
+          "raw": "{{login_json}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.environment.get(\"admin_password\")) { throw new Error(\"Set admin_password in your private selected environment\"); }",
+              "pm.variables.set(\"login_json\", JSON.stringify({username: pm.environment.get(\"admin_username\"), password: pm.environment.get(\"admin_password\")}));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) {",
+              "const body = pm.response.json();",
+              "pm.environment.set(\"admin_token\", body.access_token);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "03 Analyze preview - no complaint saved",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/analyze",
+        "description": "Preview writes no complaint, group, audit or review. Model caches may be populated. Existing candidates are redacted for anonymous callers.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"মিরপুর ১০ এ ৩ দিন ধরে পানি নেই\",\n  \"lang\": \"bn\",\n  \"location\": \"Mirpur 10\",\n  \"timestamp\": \"2026-10-30T10:00:00+06:00\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "04 Submit Bangla Mirpur water complaint",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/complaints",
+        "description": "Illustrative synthetic report. This writes to the database. Automatic multilingual grouping requires a trained duplicate artifact; it is not asserted by this collection.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"মিরপুর ১০ এ ৩ দিন ধরে পানি নেই\",\n  \"lang\": \"bn\",\n  \"location\": \"মিরপুর ১০\",\n  \"timestamp\": \"2026-10-30T10:00:00+06:00\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code === 201) {",
+              "const body = pm.response.json();",
+              "pm.environment.set(\"id_bn\", body.id);",
+              "pm.environment.set(\"complaint_id\", body.id);",
+              "pm.environment.set(\"complaint_version\", String(body.version));",
+              "pm.environment.set(\"group_id\", body.group_id);",
+              "if (body.group_version) { pm.environment.set(\"group_version\", String(body.group_version)); }",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "05 Submit Banglish Mirpur water complaint",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/complaints",
+        "description": "Illustrative synthetic report. This writes to the database. Automatic multilingual grouping requires a trained duplicate artifact; it is not asserted by this collection.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"mirpur-10 e 3 din dhore pani nai\",\n  \"lang\": \"banglish\",\n  \"location\": \"Mirpur-10\",\n  \"timestamp\": \"2026-10-30T10:00:00+06:00\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code === 201) {",
+              "const body = pm.response.json();",
+              "pm.environment.set(\"id_banglish\", body.id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "06 Submit English Mirpur water complaint",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/complaints",
+        "description": "Illustrative synthetic report. This writes to the database. Automatic multilingual grouping requires a trained duplicate artifact; it is not asserted by this collection.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"No water in Mirpur 10 for three days\",\n  \"lang\": \"en\",\n  \"location\": \"Mirpur 10\",\n  \"timestamp\": \"2026-10-30T10:00:00+06:00\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code === 201) {",
+              "const body = pm.response.json();",
+              "pm.environment.set(\"id_en\", body.id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "07 Same text with different explicit area",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/complaints",
+        "description": "Illustrative synthetic report. This writes to the database. Automatic multilingual grouping requires a trained duplicate artifact; it is not asserted by this collection.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"No water in Mirpur 10 for three days\",\n  \"lang\": \"en\",\n  \"location\": \"Uttara sector 4\",\n  \"timestamp\": \"2026-10-30T10:00:00+06:00\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code === 201) {",
+              "const body = pm.response.json();",
+              "pm.environment.set(\"id_other_area\", body.id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "08 List complaints with all requested filters",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{base_url}}/complaints?category=Water&priority=high&area=Mirpur%2010&status=submitted&page=1&page_size=20",
+        "description": "Illustrative filter values; edit category/priority/status to match real outputs. A degraded model may have no category and return no matching rows. Remove query parameters to list all authorized rows."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "09 Get complaint and refresh version",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{base_url}}/complaints/{{complaint_id}}",
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) {",
+              "const body = pm.response.json();",
+              "pm.environment.set(\"complaint_version\", String(body.version));",
+              "pm.environment.set(\"group_id\", body.group_id);",
+              "if (body.group_version) { pm.environment.set(\"group_version\", String(body.group_version)); }",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "10 Admin priority and status review",
+      "request": {
+        "method": "PATCH",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/complaints/{{complaint_id}}",
+        "description": "Requires current complaint version and meaningful reason. Original automatic analysis is retained. Example points are input data, not performance measurements.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"expected_version\": {{complaint_version}},\n  \"reason\": \"Illustrative reviewed essential-service impact in a disposable local database\",\n  \"priority_score\": 11,\n  \"priority_label\": \"high\",\n  \"status\": \"in_review\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) {",
+              "const body = pm.response.json();",
+              "pm.environment.set(\"complaint_version\", String(body.version));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "11 List duplicate groups and refresh selected version",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{base_url}}/duplicate-groups?page=1&page_size=100",
+        "description": "Refresh before group writes. With more than 100 groups, page to the selected group. Group member lists are capped; inspect all required reports before review."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) {",
+              "const group = pm.response.json().items.find(item => item.id === pm.environment.get(\"group_id\"));",
+              "if (!group) { throw new Error(\"Selected group is not on this page; adjust pagination before review\"); }",
+              "pm.environment.set(\"group_version\", String(group.version));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "12 Admin confirm and explicitly merge reviewed Mirpur samples",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/duplicate-groups/{{group_id}}/confirm",
+        "description": "REAL HUMAN WRITE: the supplied IDs explicitly merge the sample reports even if the development model is unavailable. This is not evidence of automatic grouping. Omit complaint_ids to confirm unchanged membership.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"expected_version\": {{group_version}},\n  \"reason\": \"Illustrative manual review confirms the three synthetic Mirpur reports as one incident\",\n  \"complaint_ids\": [\n    \"{{id_bn}}\",\n    \"{{id_banglish}}\",\n    \"{{id_en}}\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) {",
+              "const body = pm.response.json();",
+              "pm.environment.set(\"group_id\", body.id);",
+              "pm.environment.set(\"group_version\", String(body.version));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "13 Admin split English sample after new evidence",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/duplicate-groups/{{group_id}}/split",
+        "description": "REAL HUMAN WRITE: selects a proper nonempty subset, creates another protected reviewed group and records feedback. Both partitions resist silent automatic rejoining.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"expected_version\": {{group_version}},\n  \"reason\": \"Illustrative new manual evidence identifies the English report as a separate incident\",\n  \"complaint_ids\": [\n    \"{{id_en}}\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) {",
+              "const body = pm.response.json();",
+              "pm.environment.set(\"group_id\", body.original_group.id);",
+              "pm.environment.set(\"group_version\", String(body.original_group.version));",
+              "pm.environment.set(\"split_group_id\", body.new_group.id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "14 Aggregate statistics",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [],
+        "url": "{{base_url}}/stats",
+        "description": "Public aggregate counts; no complaint bodies, credentials or raw location strings."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "15 OpenAPI specification",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [],
+        "url": "{{base_url}}/openapi.json",
+        "description": "Development only: inspect /docs or import this URL. Production disables /docs, /redoc and /openapi.json and returns 404."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Development specification or disabled production route\", () => pm.expect([200, 404]).to.include(pm.response.code));"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "16 Anonymous minimal tracking",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/tracking/{{complaint_id}}",
+        "description": "Keep the random tracking ID private. No raw complaint text, private contact or group membership is returned.",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Private fields omitted\", () => { const body = pm.response.json(); [\"text\", \"contact\", \"location\", \"analysis\", \"group_id\"].forEach(key => pm.expect(body).not.to.have.property(key)); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "17 Admin chart aggregates",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{base_url}}/analytics",
+        "description": "Full-corpus administrator aggregates. Daily counts show current priority by UTC report-creation date, not historical model decisions."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "18 Admin current group detail",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{base_url}}/duplicate-groups/{{group_id}}",
+        "description": "Refresh a group before a versioned review action."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "19 Admin human-review queue",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{base_url}}/complaints?review_required=true&page=1&page_size=20",
+        "description": "Server-side human-review filtering, with bounded pagination."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "20 Preview reviewed data deletion (no erasure)",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/admin/data-deletion",
+        "description": "Default dry-run: set private environment deletion_complaint_id to the actual reviewed UUID. The body uses literal JSON apply=false, not a string. Inspect would_delete_ids and missing_ids. No domain erasure or cache purge occurs. Do not infer requester ownership from possession of an ID.",
+        "body": {
+          "mode": "raw",
+          "raw": "{{deletion_json}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const identifier = pm.environment.get(\"deletion_complaint_id\");",
+              "if (!identifier || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(identifier)) { throw new Error(\"Set deletion_complaint_id to the actual UUID reviewed for this request in your private local environment\"); }",
+              "pm.variables.set(\"deletion_json\", JSON.stringify({complaint_ids: [identifier], reason: \"verified_privacy_request\", apply: false}));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) { pm.test(\"Expected dry-run mode\", () => pm.expect(pm.response.json().dry_run).to.eql(true)); }"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "21 APPLY reviewed data deletion (irreversible, explicit approval)",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/admin/data-deletion",
+        "description": "IRREVERSIBLE HUMAN ADMINISTRATION WRITE. Read docs/data_retention.md, verify ownership/scope/holds, review the preview, and stop/restart other workers as required. Set private environment deletion_complaint_id to the approved UUID and deletion_apply_approved=true only when applying this specific request. Approval is cleared before send. No real ID, token or credentials are bundled. This does not erase external exports, backups or separately trained models.",
+        "body": {
+          "mode": "raw",
+          "raw": "{{deletion_json}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const identifier = pm.environment.get(\"deletion_complaint_id\");",
+              "if (!identifier || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(identifier)) { throw new Error(\"Set deletion_complaint_id to the actual UUID reviewed for this request in your private local environment\"); }",
+              "if (pm.environment.get(\"deletion_apply_approved\") !== \"true\") { throw new Error(\"Review the preview/scope and maintenance runbook, then explicitly set local deletion_apply_approved=true for one apply request\"); }",
+              "pm.environment.unset(\"deletion_apply_approved\");",
+              "pm.variables.set(\"deletion_json\", JSON.stringify({complaint_ids: [identifier], reason: \"verified_privacy_request\", apply: true}));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) { pm.test(\"Expected dry-run mode\", () => pm.expect(pm.response.json().dry_run).to.eql(false)); }"
+            ]
+          }
+        }
+      ],
+      "response": []
+    }
+  ]
+}

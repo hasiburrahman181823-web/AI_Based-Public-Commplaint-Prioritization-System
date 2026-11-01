@@ -1,0 +1,18 @@
+# Research/data-pipeline direct pins; use the Linux hash locks for deployment.
+pandas==3.0.6
+numpy==2.5.3
+pyarrow==25.0.1
+python-dotenv==1.2.3
+pytest==9.2.0
+fastapi==0.141.1
+starlette==1.6.0
+pydantic==2.13.5
+uvicorn==0.53.0
+httpx==0.28.1
+scikit-learn==1.9.1
+scipy==1.18.1
+matplotlib==3.11.2
+joblib==1.6.0
+rapidfuzz==3.14.6
+openpyxl==3.1.5
+PyYAML==6.0.3

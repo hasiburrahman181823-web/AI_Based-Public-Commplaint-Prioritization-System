@@ -1,0 +1,53 @@
+# Research starting values; validate the weights with domain experts before use.
+# duplicate_group_size counts reports, not unique people or people affected.
+schema_version: 1
+weights:
+  severity: 1.0
+  category: 1.0
+  duration: 1.0
+  duplicate_reports: 1.0
+  vulnerable: 1.0
+  life_risk: 1.0
+severity_points:
+  Low: 1
+  Medium: 3
+  High: 5
+category_points:
+  Healthcare: 3
+  Electricity: 3
+  Food: 2
+  Water: 2
+  Waste: 1
+  Road & Transport: 1
+duration_bands:
+  - {min_hours: 24, strict: true, points: 1, label: "duration > 24h"}
+  - {min_hours: 48, strict: true, points: 2, label: "duration > 48h"}
+duplicate_bands:
+  - {min_reports: 3, points: 1, label: "duplicate report group >= 3"}
+  - {min_reports: 10, points: 2, label: "duplicate report group >= 10"}
+keyword_rules:
+  vulnerable:
+    points: 1
+    max_concepts: 1
+    concepts:
+      hospital: [hospital, hospitals, "হাসপাতাল", "হাসপাতালে", "হাসপাতালের", haspatal, haspatale]
+      school: [school, schools, "স্কুল", "স্কুলে", "স্কুলের", "বিদ্যালয়", "বিদ্যালয়ে", skul, schooler]
+      child: [child, children, infant, baby, "শিশু", "শিশুর", "শিশুরা", "শিশুদের", "বাচ্চা", "বাচ্চাদের", baccha, bachcha, shishu]
+      elderly: [elderly, "older people", "বৃদ্ধ", "বৃদ্ধা", "বয়স্ক", "বয়স্ক", boyoshko, boyosko, briddho]
+  life_risk:
+    points: 3
+    max_concepts: 1
+    concepts:
+      fire: [fire, "active fire", "আগুন", "আগুনে", "অগ্নিকাণ্ড", agun, agune, aagun]
+      electric_shock: ["electric shock", electrocution, electrocuted, "live wire", "বিদ্যুৎস্পৃষ্ট", "বিদ্যুৎ স্পৃষ্ট", "কারেন্ট শক", "কারেন্টের শক", "খোলা বৈদ্যুতিক তার", "bidyut shock", "biddut shock", "current shock", "karent shock"]
+      flood: [flood, flooding, "বন্যা", "বন্যায়", bonna, banya]
+      gas_leak: ["gas leak", "gas leakage", "গ্যাস লিক", "গ্যাস লিকেজ", "গ্যাসের লিক", "gas lik", "gash leak"]
+negation:
+  before: ["no", "not a", "not an", "not any", without, "কোনো নেই", "নেই", "নাই", nai, nei]
+  after: ["is absent", "is not present", "not present", "নেই", "নাই", "লাগেনি", nai, nei, "hoy nai", "hoyni"]
+priority_bands:
+  - {min_score: 0, label: low}
+  - {min_score: 5, label: moderate}
+  - {min_score: 9, label: high}
+  - {min_score: 13, label: urgent}
+max_score: null
