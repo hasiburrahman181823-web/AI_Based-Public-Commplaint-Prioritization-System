@@ -470,9 +470,13 @@ def create_app(settings: Settings | None = None, ml_service=None, engine=None) -
                                       area_id=result.get("area_id"), location=payload.location, contact=payload.contact, timestamp=payload.timestamp,
                                       group_id=group.id, source_report_id=record["id"], analysis=deepcopy(result))
                 session.add(complaint)
+                # Persist the parent row before its optional ownership link.
+                # The explicit flush avoids relying on unit-of-work ordering for
+                # a link model that intentionally has no ORM relationship.
+                session.flush()
                 if account_id is not None:
                     session.add(CitizenComplaintLink(complaint_id=complaint.id, account_id=account_id))
-                session.flush()
+                    session.flush()
                 _audit(session, request, account_id or "anonymous", "complaint_submit", "complaint", complaint.id,
                        {"status": complaint.status, "group_id": group.id, "area_id": complaint.area_id,
                         "review_required": complaint.review_required})
