@@ -108,12 +108,64 @@ def auth(api):
     return {"Authorization": "Bearer " + body["access_token"]}
 
 
+def citizen_auth(api, *, email="citizen@example.test", password="citizen-test-password-2030"):
+    response = api.client.post("/auth/citizen/register", json={
+        "email": email, "password": password, "full_name": "Synthetic Citizen", "phone": "+8801000000000",
+    })
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["account"]["email"] == email.casefold()
+    assert "password" not in body and "password_hash" not in body
+    return {"Authorization": "Bearer " + body["access_token"]}
+
+
 def submit(api, text="No water for three days", lang="en", location="Mirpur 10", **updates):
     body = {"text": text, "lang": lang, "location": location}
     body.update(updates)
     response = api.client.post("/complaints", json=body)
     assert response.status_code == 201, response.text
     return response.json()
+
+
+def test_citizen_account_history_links_only_signed_in_complaints(api):
+    headers = citizen_auth(api)
+    private = submit(api, "Mirpur 10 has no water", "en", "Mirpur 10",
+                     contact="citizen-private@example.test")
+    # Anonymous submissions and tracking remain available without an account.
+    anonymous = submit(api, "Road is damaged", "en", "Mohammadpur")
+    signed_response = api.client.post(
+        "/complaints",
+        json={"text": "pani nai 3 din dhore", "lang": "banglish", "location": "Mirpur 10"},
+        headers=headers,
+    )
+    assert signed_response.status_code == 201, signed_response.text
+    signed = signed_response.json()
+
+    history_response = api.client.get("/auth/citizen/complaints", headers=headers)
+    assert history_response.status_code == 200, history_response.text
+    history = history_response.json()
+    assert history["total"] == 1
+    assert history["items"][0]["id"] == signed["id"]
+    assert history["items"][0]["text"] == "pani nai 3 din dhore"
+    assert private["id"] not in {item["id"] for item in history["items"]}
+    assert anonymous["id"] not in {item["id"] for item in history["items"]}
+    assert api.client.get("/auth/citizen/complaints").status_code == 401
+    profile = api.client.get("/auth/citizen/me", headers=headers)
+    assert profile.status_code == 200, profile.text
+    # A citizen audience is never accepted by administrator-only endpoints.
+    assert api.client.get("/complaints", headers=headers).status_code == 401
+    assert api.client.get("/duplicate-groups", headers=headers).status_code == 401
+
+    login = api.client.post("/auth/citizen/login", json={
+        "email": "CITIZEN@example.test", "password": "citizen-test-password-2030",
+    })
+    assert login.status_code == 200, login.text
+    assert login.json()["account"]["id"] == profile.json()["id"]
+    assert api.client.get("/auth/citizen/me", headers={"Authorization": "Bearer " + login.json()["access_token"]}).status_code == 200
+    duplicate = api.client.post("/auth/citizen/register", json={
+        "email": "citizen@example.test", "password": "another-citizen-password-2030",
+    })
+    assert duplicate.status_code == 409
 
 
 def groups(api, headers):

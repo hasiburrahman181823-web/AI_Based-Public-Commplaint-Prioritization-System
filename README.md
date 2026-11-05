@@ -14,6 +14,8 @@ data creation, duplicate candidate generation and local human annotation, and
 **Phase 6** a persistent FastAPI backend with administrator review and feedback,
 **Phase 7** a bilingual public and administrator frontend, and **Phase 8**
 container/deployment instructions, security hardening and thesis reporting.
+Citizens may submit anonymously or sign in to keep a private account history;
+the staff dashboard remains a separate administrator-only area.
 Start with the setup below, then follow the complete
 [Phase 2 workflow](docs/phase2_workflow.md) and
 [annotation guideline](docs/annotation_guideline.md).
@@ -32,7 +34,9 @@ to start until its required models and services are ready.
 
 ## Security upgrade and deployment
 
-Before upgrading an existing deployment: new complaint/preview text is limited
+Before upgrading an existing deployment: the latest migration adds citizen
+profiles and separate complaint ownership links without changing existing
+complaints; new complaint/preview text is limited
 to **1,000 characters**; legacy PBKDF2 administrator hashes must be regenerated
 as **Argon2id**; production API documentation is disabled. Existing complaint
 rows are retained. The administrator token defaults to 30 minutes and cannot
@@ -50,6 +54,11 @@ contact before accepting personal information. Reviewed deletion is available
 through `scripts/delete_data.py` and the protected `/admin/data-deletion`
 preview/apply endpoint; backups, exports and separately trained models still
 require the operator's documented process.
+
+Citizen accounts store a required email and optional name/phone separately from
+complaint text. Only reports submitted while signed in appear in that account;
+anonymous reports remain accessible by their tracking ID. This demo does not
+provide email verification, password recovery or self-service account deletion.
 
 For local PostgreSQL + Redis + API containers, install Docker Compose 2.30+
 and follow the [container guide](docs/containers.md):

@@ -44,6 +44,21 @@ class ComplaintPage(BaseModel):
     page_size: int = Field(ge=1, le=100)
 
 
+class CitizenAccountView(BaseModel):
+    id: str
+    email: str
+    full_name: str | None
+    phone: str | None
+    created_at: str
+
+
+class CitizenAuthResponse(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    expires_in: int = Field(gt=0)
+    account: CitizenAccountView
+
+
 class GroupView(BaseModel):
     id: str
     status: Literal["proposed", "confirmed", "reviewed_split"]

@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import type { Complaint, Lang } from '../api'
+import { useAuth } from '../auth'
 import { errorMessage, label, useI18n } from '../i18n'
 import { detectLanguage } from '../language'
 import { Badge, ErrorNotice, Icon } from '../ui'
@@ -10,6 +11,7 @@ import { operatorPublished } from '../privacy'
 
 export default function PublicPage() {
   const { t, locale } = useI18n()
+  const { citizen, citizenToken } = useAuth()
   const [text, setText] = useState(''), [area, setArea] = useState(''), [contact, setContact] = useState('')
   const [language, setLanguage] = useState<'auto' | Lang>('auto'), [busy, setBusy] = useState(false)
   const [error, setError] = useState(''), [receipt, setReceipt] = useState<Complaint | null>(null), [copyState, setCopyState] = useState('')
@@ -22,7 +24,10 @@ export default function PublicPage() {
     setError('')
     if (!count || count > 1000) { setError(locale === 'bn' ? '১ থেকে ১০০০ অক্ষরে অভিযোগ লিখুন।' : 'Describe your complaint in 1–1,000 characters.'); return }
     setBusy(true)
-    try { setReceipt(await api.submit({ text: text.trim(), ...(area.trim() ? { location: area.trim() } : {}), ...(contact.trim() ? { contact: contact.trim() } : {}), ...(language !== 'auto' ? { lang: language } : {}) })) }
+    try {
+      const body = { text: text.trim(), ...(area.trim() ? { location: area.trim() } : {}), ...(contact.trim() ? { contact: contact.trim() } : {}), ...(language !== 'auto' ? { lang: language } : {}) }
+      setReceipt(await (citizenToken ? api.submit(body, citizenToken) : api.submit(body)))
+    }
     catch (error) { setError(errorMessage(error, locale)) } finally { setBusy(false) }
   }
   async function copyId() { try { await navigator.clipboard.writeText(receipt!.id); setCopyState(t('copied')) } catch { setCopyState(t('copyFailed')) } }
@@ -44,9 +49,13 @@ export default function PublicPage() {
         <h2 ref={successHeading} tabIndex={-1} id="form-title">{t('received')}</h2><p>{t('receivedHint')}</p>
         <div className="tracking-code"><span>{t('trackingId')}</span><code>{receipt.id}</code><button type="button" className="button-secondary" onClick={copyId}><Icon name="copy"/>{t('copy')}</button><p aria-live="polite">{copyState}</p></div>
         <Link className="button-primary w-full" to={`/track/${receipt.id}`}>{t('viewProgress')}<Icon name="arrow"/></Link>
+        {citizenToken && <Link className="text-button mt-4 block text-center" to="/account/complaints">{locale === 'bn' ? 'আপনার অ্যাকাউন্টে অভিযোগটি দেখুন' : 'See this report in your account'} →</Link>}
         <button className="text-button mt-5" onClick={reset}>{t('another')}</button>
       </div> : <>
         <h2 id="form-title">{t('formTitle')}</h2><p className="form-subtitle">{t('formHint')}</p>
+        {citizenToken
+          ? <div className="privacy-note mb-5"><Icon name="shield"/><p>{locale === 'bn' ? <>{citizen?.email ? citizen.email + ' হিসেবে ' : ''}জমা হবে এবং আপনার <Link className="text-button" to="/account/complaints">অভিযোগের তালিকায়</Link> দেখা যাবে।</> : <>Submitting{citizen?.email ? ' as ' + citizen.email : ''}. This will appear in <Link className="text-button" to="/account/complaints">your complaint history</Link>.</>}</p></div>
+          : <p className="field-hint mb-5">{locale === 'bn' ? <>চাইলে <Link className="text-button" to="/account">অ্যাকাউন্ট খুলুন বা লগইন করুন</Link>—তাহলে জমা অভিযোগের ইতিহাস দেখতে পারবেন। লগইন ছাড়া জমা দেওয়াও চালু আছে।</> : <>You can <Link className="text-button" to="/account">sign in or create an account</Link> to keep a history. Anonymous submission is still available.</>}</p>}
         <form onSubmit={submit} aria-busy={busy} className="space-y-6">
           <div><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><label htmlFor="complaint-text">{t('complaint')}<span className="sr-only"> ({t('required')})</span></label>{detected && <Badge tone="teal">{t('detected')}: {label(detected, locale)}</Badge>}</div>
             <textarea id="complaint-text" required maxLength={1000} rows={6} value={text} onChange={event => setText(event.target.value)} placeholder={t('complaintHint')} aria-describedby="text-count language-hint" disabled={busy}/>

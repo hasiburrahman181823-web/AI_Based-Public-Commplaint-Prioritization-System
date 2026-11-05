@@ -20,6 +20,7 @@ _PASSWORD_HASHER = PasswordHasher(time_cost=PASSWORD_TIME_COST, memory_cost=PASS
                                   parallelism=PASSWORD_PARALLELISM, salt_len=16, hash_len=32, type=Type.ID)
 JWT_ISSUER = "banglapsg-api"
 JWT_AUDIENCE = "banglapsg-admin"
+JWT_CITIZEN_AUDIENCE = "banglapsg-citizen"
 
 
 def validate_password_hash(encoded: str) -> Parameters:
@@ -141,3 +142,58 @@ def verify_access_token(token: str, settings) -> str:
     except (jwt.PyJWTError, ValueError, TypeError) as exc:
         raise ValueError("Invalid or expired administrator token") from exc
     return claims["sub"]
+
+
+def hash_citizen_password(password: str) -> str:
+    """Hash a citizen password with the same bounded Argon2id settings."""
+    if not isinstance(password, str) or not 10 <= len(password) <= 256:
+        raise ValueError("Password must contain 10–256 characters")
+    try:
+        password.encode("utf-8")
+        return _PASSWORD_HASHER.hash(password)
+    except (UnicodeError, HashingError) as exc:
+        raise ValueError("The password could not be hashed safely") from exc
+
+
+def create_citizen_access_token(account_id: str, settings) -> tuple[str, int]:
+    """Create a citizen-only token with an audience separate from admin JWTs."""
+    settings.validate()
+    validate_jwt_secret(settings.jwt_secret)
+    try:
+        canonical_id = str(uuid.UUID(account_id))
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise ValueError("Invalid citizen account ID") from exc
+    now = int(datetime.now(timezone.utc).timestamp())
+    lifetime = settings.jwt_expire_minutes * 60
+    token = jwt.encode(
+        {"sub": canonical_id, "role": "citizen", "iat": now, "nbf": now, "exp": now + lifetime,
+         "iss": JWT_ISSUER, "aud": JWT_CITIZEN_AUDIENCE, "jti": str(uuid.uuid4())},
+        settings.jwt_secret,
+        algorithm="HS256",
+    )
+    return token, lifetime
+
+
+def verify_citizen_access_token(token: str, settings) -> str:
+    """Validate citizen tokens; admin tokens fail on the separate audience/role."""
+    if not isinstance(token, str) or not token or len(token) > 8192:
+        raise ValueError("Invalid citizen token")
+    try:
+        validate_jwt_secret(settings.jwt_secret)
+        claims = jwt.decode(
+            token,
+            settings.jwt_secret,
+            algorithms=["HS256"],
+            issuer=JWT_ISSUER,
+            audience=JWT_CITIZEN_AUDIENCE,
+            options={"require": ["sub", "role", "exp", "iat", "nbf", "iss", "aud", "jti"]},
+        )
+        if (any(type(claims.get(name)) is not int for name in ("iat", "nbf", "exp"))
+                or not 0 < claims["exp"] - claims["iat"] <= settings.jwt_expire_minutes * 60
+                or claims.get("role") != "citizen"
+                or not isinstance(claims.get("jti"), str)
+                or not claims["jti"]):
+            raise ValueError("Invalid citizen claims")
+        return str(uuid.UUID(claims["sub"]))
+    except (jwt.PyJWTError, ValueError, TypeError, AttributeError) as exc:
+        raise ValueError("Invalid or expired citizen token") from exc

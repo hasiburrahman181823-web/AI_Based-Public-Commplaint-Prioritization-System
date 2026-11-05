@@ -9,6 +9,12 @@ export interface Complaint {
   timestamp?: string | null; contact?: string | null; confidence?: number | null
   review_required?: boolean; analysis?: Record<string, unknown>
 }
+export interface CitizenAccount {
+  id: string; email: string; full_name: string | null; phone: string | null; created_at: string
+}
+export interface CitizenAuthResponse {
+  access_token: string; token_type: 'bearer'; expires_in: number; account: CitizenAccount
+}
 export interface Group {
   id: string; status: string; version: number; size: number; created_at: string; updated_at: string
   complaint_ids?: string[]; confirmed_by?: string | null; members_truncated?: boolean
@@ -48,7 +54,7 @@ export function validateBaseUrl(value: string): string {
 }
 export const API_BASE_URL = validateBaseUrl(import.meta.env.VITE_API_BASE_URL || '/api')
 
-export async function request<T>(path: string, options: { method?: string; body?: unknown; token?: string | null; signal?: AbortSignal } = {}): Promise<T> {
+export async function request<T>(path: string, options: { method?: string; body?: unknown; token?: string | null; session?: 'admin' | 'citizen'; signal?: AbortSignal } = {}): Promise<T> {
   const controller = new AbortController()
   const abort = () => controller.abort()
   options.signal?.addEventListener('abort', abort, { once: true })
@@ -63,7 +69,7 @@ export async function request<T>(path: string, options: { method?: string; body?
     })
     const body = await response.json().catch(() => null)
     if (!response.ok) {
-      if (response.status === 401 && options.token) window.dispatchEvent(new Event('nagarik:unauthorized'))
+      if (response.status === 401 && options.token) window.dispatchEvent(new Event(options.session === 'citizen' ? 'nagarik:citizen-unauthorized' : 'nagarik:unauthorized'))
       const detail = typeof body?.detail === 'string' ? body.detail : 'The request could not be completed.'
       throw new ApiError(response.status, detail)
     }
@@ -82,8 +88,10 @@ function query(params: Params = {}) {
   return search.size ? '?' + search.toString() : ''
 }
 export const api = {
-  submit: async (body: CreateComplaint) => {
-    const result = await request<Complaint>('/complaints', { method: 'POST', body })
+  submit: async (body: CreateComplaint, citizenToken?: string | null) => {
+    const result = await request<Complaint>('/complaints', {
+      method: 'POST', body, ...(citizenToken ? { token: citizenToken, session: 'citizen' as const } : {}),
+    })
     // A proxy's unrelated JSON success is not proof that a report was saved.
     if (!result || typeof result.id !== 'string' || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(result.id)
         || !Number.isInteger(result.version) || result.version < 1 || typeof result.status !== 'string') {
@@ -93,6 +101,14 @@ export const api = {
   },
   track: (id: string, signal?: AbortSignal) => request<Tracking>(`/tracking/${encodeURIComponent(id)}`, { signal }),
   login: (username: string, password: string) => request<{ access_token: string; token_type: string; expires_in: number }>('/auth/token', { method: 'POST', body: { username, password } }),
+  citizenRegister: (body: { email: string; password: string; full_name?: string; phone?: string }) =>
+    request<CitizenAuthResponse>('/auth/citizen/register', { method: 'POST', body }),
+  citizenLogin: (email: string, password: string) =>
+    request<CitizenAuthResponse>('/auth/citizen/login', { method: 'POST', body: { email, password } }),
+  citizenMe: (token: string) =>
+    request<CitizenAccount>('/auth/citizen/me', { token, session: 'citizen' }),
+  citizenComplaints: (params: Params, token: string, signal?: AbortSignal) =>
+    request<Page<Complaint>>('/auth/citizen/complaints' + query(params), { token, session: 'citizen', signal }),
   listComplaints: (params: Params, token: string, signal?: AbortSignal) => request<Page<Complaint>>('/complaints' + query(params), { token, signal }),
   getComplaint: (id: string, token: string, signal?: AbortSignal) => request<Complaint>(`/complaints/${encodeURIComponent(id)}`, { token, signal }),
   patchComplaint: (id: string, body: ComplaintPatch, token: string) => request<Complaint>(`/complaints/${encodeURIComponent(id)}`, { method: 'PATCH', body, token }),

@@ -46,6 +46,32 @@ class UTCDateTime(TypeDecorator):
         return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
 
 
+class CitizenAccount(Base):
+    __tablename__ = "citizen_accounts"
+    __table_args__ = (
+        CheckConstraint("length(email) BETWEEN 6 AND 254", name="ck_citizen_accounts_email_length"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    email: Mapped[str] = mapped_column(String(254), nullable=False, unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
+    full_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utcnow, onupdate=utcnow)
+
+
+class CitizenComplaintLink(Base):
+    __tablename__ = "citizen_complaint_links"
+    __table_args__ = (
+        Index("ix_citizen_complaint_links_account_created", "account_id", "created_at"),
+    )
+
+    complaint_id: Mapped[str] = mapped_column(String(36), ForeignKey("complaints.id", ondelete="CASCADE"), primary_key=True)
+    account_id: Mapped[str] = mapped_column(String(36), ForeignKey("citizen_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utcnow)
+
+
 class DuplicateGroup(Base):
     __tablename__ = "duplicate_groups"
     __table_args__ = (

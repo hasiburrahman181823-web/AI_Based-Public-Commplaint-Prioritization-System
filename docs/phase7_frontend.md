@@ -24,10 +24,11 @@ python -m alembic upgrade head
 python -m uvicorn backend.app:create_app --factory --host 127.0.0.1 --port 8000 --no-proxy-headers
 ```
 
-The latest migration adds optional private contact information. Apply it to an
-existing Phase 6 database before starting this version of the application;
-existing complaints retain a null contact field. The migration does not replace
-the database or discard earlier complaints, reviews or audit records.
+The latest migrations add optional private contact information, citizen profiles
+and separate ownership links. Apply them to an existing database before starting
+this version of the application. Existing complaints remain anonymous and are
+not linked by matching contact details; earlier complaints, reviews and audit
+records are retained.
 
 The [backend guide](phase6_backend.md) explains authentication, model artifacts,
 database settings, rate limits, feedback export and production requirements.
@@ -102,6 +103,16 @@ lockfile is included so `npm ci` reproduces the declared dependency tree.
    The public response contains only the tracking summary: it omits complaint
    wording, raw location, contact, internal analysis and other reports' IDs.
 
+At `/account`, a citizen can register with an email and password or sign in.
+Name and phone are optional profile details stored separately from complaint
+text. If signed in when submitting, the report appears in `/account/complaints`
+with its own text, location, optional contact and current status. If not signed
+in, the report remains anonymous and is tracked by its receipt ID. Existing
+anonymous reports are not automatically attached to a later account. Password
+recovery, email verification and self-service account deletion are not available
+in this demo; use a unique password and follow the privacy notice before entering
+real profile information.
+
 Anyone holding the tracking ID can view that limited summary; treat a copied
 tracking link as something you are deliberately sharing. Public tracking does
 not expose the administrator's complaint detail view. Contact is optional,
@@ -121,7 +132,7 @@ JWT is held in application memory and sent only to the configured API; reloading
 the page or closing the tab requires signing in again. Passwords and tokens are
 not stored in local storage. Sign out when finished on a shared device.
 
-The dashboard includes:
+The separate staff login remains at `/admin/login`. The dashboard includes:
 
 - A priority queue with category, priority, area and status filters and pagination.
 - A Needs review tab using the persisted `review_required` flag.

@@ -3,7 +3,7 @@
     "_postman_id": "138cd06b-6385-4e4f-8459-6c125f337b39",
     "name": "BanglaPSG API and security maintenance",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Run on a disposable local database. Select the supplied environment and fill local admin credentials. Steps 04-07 submit synthetic examples. Steps 12-13 are real human review writes: confirmation explicitly moves all three Mirpur reports into one group after review, and splitting separates the English report. These actions demonstrate transport and persistence, not real-model accuracy. Private complaint reads require admin JWTs by default. No credentials or tokens are bundled. Versions captured by scripts can still become stale after concurrent writes; refresh and review on 409. New submissions/preview are capped at 1000 characters. Default per-IP limits: submission 5/minute, analyze 10/minute, login 3/minute; rapid repeats may return 429. Production API documentation is disabled. Deletion requests are preview-first and must be manually scoped; apply is an irreversible administration write."
+    "description": "Run on a disposable local database. Select the supplied environment and fill local admin credentials. Steps 04-07 submit synthetic examples. Steps 12-13 are real human review writes: confirmation explicitly moves all three Mirpur reports into one group after review, and splitting separates the English report. These actions demonstrate transport and persistence, not real-model accuracy. Private complaint reads require admin JWTs by default. No credentials or tokens are bundled. Versions captured by scripts can still become stale after concurrent writes; refresh and review on 409. New submissions/preview are capped at 1000 characters. Default per-IP limits: submission 5/minute, analyze 10/minute, login 3/minute; rapid repeats may return 429. Production API documentation is disabled. Deletion requests are preview-first and must be manually scoped; apply is an irreversible administration write. Citizen account requests use separate private citizen_email/citizen_password/citizen_token environment values. Use synthetic data; never export a populated environment."
   },
   "auth": {
     "type": "noauth"
@@ -83,6 +83,148 @@
           }
         }
       ],
+      "response": []
+    },
+    {
+      "name": "Citizen account - register",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/auth/citizen/register",
+        "description": "Creates a synthetic citizen account and saves the short-lived citizen token in this private local environment. Use a test email and password; do not export this environment.",
+        "body": {
+          "mode": "raw",
+          "raw": "{{citizen_auth_json}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const email = pm.environment.get(\"citizen_email\");",
+              "const password = pm.environment.get(\"citizen_password\");",
+              "if (!email || !password) { throw new Error(\"Set citizen_email and citizen_password in your private local Postman environment.\"); }",
+              "pm.variables.set(\"citizen_auth_json\", JSON.stringify({email, password}));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code === 201) { const body = pm.response.json(); pm.environment.set(\"citizen_token\", body.access_token); }"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Citizen account - sign in",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/auth/citizen/login",
+        "description": "Signs in to the citizen account configured in the private environment and refreshes citizen_token.",
+        "body": {
+          "mode": "raw",
+          "raw": "{{citizen_auth_json}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const email = pm.environment.get(\"citizen_email\");",
+              "const password = pm.environment.get(\"citizen_password\");",
+              "if (!email || !password) { throw new Error(\"Set citizen_email and citizen_password in your private local Postman environment.\"); }",
+              "pm.variables.set(\"citizen_auth_json\", JSON.stringify({email, password}));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) { const body = pm.response.json(); pm.environment.set(\"citizen_token\", body.access_token); }"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Citizen account - my profile",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{citizen_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{base_url}}/auth/citizen/me",
+        "description": "Returns only the profile for citizen_token. This token cannot access administrator routes."
+      },
+      "response": []
+    },
+    {
+      "name": "Citizen account - my complaints",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{citizen_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{base_url}}/auth/citizen/complaints?page=1&page_size=25",
+        "description": "Returns complaint history linked to the signed-in citizen account only."
+      },
       "response": []
     },
     {

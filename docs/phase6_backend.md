@@ -140,7 +140,11 @@ Development degradation is distinct from a fully ready ML pipeline.
 | Method and path | Default access | Behavior |
 | --- | --- | --- |
 | `POST /auth/token` | Public, login-rate limited | JSON administrator name/password; returns short-lived bearer token. |
-| `POST /complaints` | Anonymous, submission-rate limited | Validates and analyzes one complaint, stores it transactionally, and proposes group membership. |
+| `POST /auth/citizen/register` | Public, login-rate limited | Creates a citizen profile with email, Argon2id password hash and optional name/phone; returns a short-lived citizen-only token. |
+| `POST /auth/citizen/login` | Public, login-rate limited | Signs into a citizen account; responses do not disclose whether an email is registered. |
+| `GET /auth/citizen/me` | Citizen | Returns only the signed-in user's profile. |
+| `GET /auth/citizen/complaints` | Citizen | Returns paginated complaint details linked to the signed-in account, including that user's optional contact field. |
+| `POST /complaints` | Anonymous or citizen, submission-rate limited | Validates and analyzes one complaint, stores it transactionally, and proposes group membership. A citizen bearer token links this report to that account; no token keeps it anonymous. |
 | `POST /analyze` | Anonymous, analysis-rate limited | Same analysis preview without inserting a complaint, group or review. |
 | `GET /tracking/{id}` | Anonymous, rate limited | Minimal status summary for a random tracking ID; no complaint text, contact, group IDs or analysis. |
 | `GET /complaints` | Administrator | Paginated filtering by `category`, `priority`, `area`, and `status`. |
@@ -158,7 +162,24 @@ Development degradation is distinct from a fully ready ML pipeline.
 `BACKEND_ALLOW_PUBLIC_READS=true` optionally exposes redacted read responses.
 Public read/submit/preview responses do not grant access to other complaints'
 text, raw locations, internal analysis or audit/review history. Authentication
-does not create citizen accounts: only the configured administrator uses JWTs.
+uses distinct JWT audiences for administrators and citizens. A citizen token
+cannot authorize any administrator endpoint. Profile email, optional name and
+phone live in `citizen_accounts`; the separate `citizen_complaint_links` table
+links only submissions made while signed in. Anonymous reports are never linked
+later by matching email or contact. There is no email verification, password
+reset, or self-service account deletion in this demo; publish the privacy
+operator contact and deletion process before collecting real profile data.
+
+### Citizen account behavior
+
+The citizen registration and login routes share the stricter IP-based login
+limit. Registration requires a 10-character password minimum and Argon2id
+hashing. Tokens expire within the configured short session lifetime and are
+audience-separated from administrator tokens. The frontend keeps a citizen
+token in tab-scoped `sessionStorage`; do not use this on an untrusted shared
+device. Signed-in submissions remain available alongside anonymous submissions.
+Only the authenticated account's linked reports appear in its history. Anonymous
+tracking continues to use the random ID receipt.
 
 ### Anonymous submission or preview
 

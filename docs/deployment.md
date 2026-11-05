@@ -361,8 +361,9 @@ If your account and verified networking solution support this deployment:
    `BACKEND_ALLOWED_ORIGINS` and restart/redeploy the backend. Add a deliberate
    staging origin separately if needed. Do not allow every `*.vercel.app` domain.
 5. The included `frontend/vercel.json` rewrites only known browser routes to
-   `index.html`: tracking, administration and privacy. Assets and unknown API
-   paths are not rewritten into HTML. Verify a direct tracking URL, `/admin/login`,
+   `index.html`: tracking, citizen account/history, administration and privacy.
+   Assets and unknown API paths are not rewritten into HTML. Verify direct
+   `/track/<uuid>`, `/account`, `/account/complaints`, `/admin/login`,
    `/privacy`, the favicon and a hashed JavaScript asset.
 6. Rebuild/redeploy after changing `VITE_*` values: Vite embeds them in the public
    build. `DEV_API_TARGET` is for local development and does not redirect a hosted
@@ -372,8 +373,9 @@ If your account and verified networking solution support this deployment:
 
 Do not place the CPU backend in a frontend serverless function. The chosen
 service architecture retains a process-wide model/index and requires database
-transaction coordination. The frontend uses its memory-only admin bearer token;
-it does not send browser cookies to the API. Treat a privacy/tracking ID as a
+transaction coordination. The frontend keeps admin tokens in memory and citizen
+tokens in tab-scoped session storage; it does not send browser cookies to the API.
+Treat a privacy/tracking ID as a
 capability and avoid sharing screenshots containing real IDs.
 
 ## 8. Health, CORS and cold-start checks

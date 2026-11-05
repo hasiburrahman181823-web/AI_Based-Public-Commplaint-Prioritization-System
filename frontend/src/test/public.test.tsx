@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { api, ApiError } from '../api'
 import type { Complaint, Tracking } from '../api'
+import { AuthProvider } from '../auth'
 import { I18nProvider } from '../i18n'
 import PublicPage from '../pages/PublicPage'
 import TrackingPage from '../pages/TrackingPage'
@@ -17,7 +18,7 @@ const tracking: Tracking = { id: ID, lang: 'en', category: 'Water', severity: 'H
   priority_label: 'high', status: 'in_progress', review_required: false, area_id: 'dhaka_mirpur_10',
   created_at: receipt.created_at, updated_at: receipt.updated_at }
 
-function publicPage() { return render(<MemoryRouter><I18nProvider><PublicPage /></I18nProvider></MemoryRouter>) }
+function publicPage() { return render(<MemoryRouter><I18nProvider><AuthProvider><PublicPage /></AuthProvider></I18nProvider></MemoryRouter>) }
 function ResetTrackingRoute() { const navigate = useNavigate(); return <button onClick={() => navigate('/track')}>Look up another ID</button> }
 function trackingPage(path: string) {
   return render(<MemoryRouter initialEntries={[path]}><I18nProvider><ResetTrackingRoute /><Routes><Route path="/track/:id?" element={<TrackingPage />} /></Routes></I18nProvider></MemoryRouter>)

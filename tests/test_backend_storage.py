@@ -28,10 +28,14 @@ def complaint(**changes):
 def test_exact_domain_tables_indexes_and_connection_constraints(storage):
     engine, _ = storage
     database = inspect(engine)
-    assert set(database.get_table_names()) == {"complaints", "duplicate_groups", "admin_reviews", "audit_log"}
+    assert set(database.get_table_names()) == {
+        "complaints", "duplicate_groups", "admin_reviews", "audit_log",
+        "citizen_accounts", "citizen_complaint_links",
+    }
     assert {row["name"] for row in database.get_indexes("complaints")} >= {
         "ix_complaints_filters", "ix_complaints_group_id", "ix_complaints_status", "ix_complaints_area_id",
     }
+    assert "ix_citizen_accounts_email" in {row["name"] for row in database.get_indexes("citizen_accounts")}
     with engine.connect() as connection:
         assert connection.execute(text("PRAGMA foreign_keys")).scalar_one() == 1
         assert connection.execute(text("PRAGMA busy_timeout")).scalar_one() == 5000
@@ -205,7 +209,7 @@ def test_alembic_upgrade_matches_orm_and_can_downgrade(tmp_path, monkeypatch):
     engine = make_engine(url)
     assert set(inspect(engine).get_table_names()) == {*Base.metadata.tables, "alembic_version"}
     with engine.connect() as connection:
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0002_private_contact"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0003_citizen_accounts"
         differences = compare_metadata(MigrationContext.configure(connection, opts={"compare_type": True}), Base.metadata)
         assert differences == []
     engine.dispose()

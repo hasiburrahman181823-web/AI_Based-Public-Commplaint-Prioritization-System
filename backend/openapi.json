@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "BanglaPSG Complaints API",
-    "description": "Anonymous complaint submission and preview; JWT-protected administration. Run migrations before startup. Complaint/group reviews require expected_version and reason; privacy deletion previews before explicit application.",
+    "description": "Anonymous or citizen-account complaint submission and preview; separate JWT-protected citizen and administrator workflows. Run migrations before startup. Complaint/group reviews require expected_version and reason; privacy deletion previews before explicit application.",
     "version": "1.2.0"
   },
   "paths": {
@@ -802,6 +802,190 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/citizen/register": {
+      "post": {
+        "tags": [
+          "Citizen accounts"
+        ],
+        "summary": "Citizen Register",
+        "description": "Create a citizen profile; profile details are separate from complaint records.",
+        "operationId": "citizen_register_auth_citizen_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CitizenRegister"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitizenAuthResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "An account for this email may already exist"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/citizen/login": {
+      "post": {
+        "tags": [
+          "Citizen accounts"
+        ],
+        "summary": "Citizen Login",
+        "description": "Sign in using a citizen-only JWT audience and the shared rate limit.",
+        "operationId": "citizen_login_auth_citizen_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CitizenLogin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitizenAuthResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid email or password"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/citizen/me": {
+      "get": {
+        "tags": [
+          "Citizen accounts"
+        ],
+        "summary": "Citizen Profile",
+        "operationId": "citizen_profile_auth_citizen_me_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitizenAccountView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Valid citizen token required"
+          }
+        }
+      }
+    },
+    "/auth/citizen/complaints": {
+      "get": {
+        "tags": [
+          "Citizen accounts"
+        ],
+        "summary": "Citizen Complaints",
+        "description": "List only reports linked to the authenticated account, including its private contact field.",
+        "operationId": "citizen_complaints_auth_citizen_complaints_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 25,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplaintPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Valid citizen token required"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -2106,12 +2290,164 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "CitizenRegister": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email",
+            "maxLength": 254,
+            "minLength": 6
+          },
+          "password": {
+            "type": "string",
+            "title": "Password",
+            "maxLength": 256,
+            "minLength": 10
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "title": "Full Name",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "title": "Phone",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "CitizenRegister"
+      },
+      "CitizenLogin": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email",
+            "maxLength": 254,
+            "minLength": 6
+          },
+          "password": {
+            "type": "string",
+            "title": "Password",
+            "maxLength": 256,
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "CitizenLogin"
+      },
+      "CitizenAccountView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "title": "Full Name"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "title": "Phone"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "full_name",
+          "phone",
+          "created_at"
+        ],
+        "title": "CitizenAccountView"
+      },
+      "CitizenAuthResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "const": "bearer",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "title": "Expires In"
+          },
+          "account": {
+            "$ref": "#/components/schemas/CitizenAccountView"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "access_token",
+          "expires_in",
+          "account"
+        ],
+        "title": "CitizenAuthResponse"
       }
     },
     "securitySchemes": {
       "HTTPBearer": {
         "type": "http",
-        "description": "Admin JWT from POST /auth/token",
+        "description": "Use POST /auth/token for staff or /auth/citizen/login/register for a citizen token; token audiences are separate.",
         "scheme": "bearer"
       }
     }

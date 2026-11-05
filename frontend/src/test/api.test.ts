@@ -28,6 +28,16 @@ describe('configured API boundary', () => {
     expect(JSON.parse(options.body)).toEqual(payload)
   })
 
+  it('links a complaint with a citizen bearer token when signed in', async () => {
+    const fetcher = vi.fn().mockResolvedValue(json({ id: '25fce77e-0fc7-4b31-b2f7-d39f1f340062', version: 1, status: 'submitted' }, 201))
+    vi.stubGlobal('fetch', fetcher)
+    await api.submit({ text: 'No water for three days' }, 'synthetic-citizen-token')
+    const [, options] = fetcher.mock.calls[0]
+    expect(options.headers.Authorization).toBe('Bearer synthetic-citizen-token')
+    expect(options.credentials).toBe('omit')
+    expect(JSON.parse(options.body)).toEqual({ text: 'No water for three days' })
+  })
+
   it('sends explicit admin credentials and retains false-valued review filters', async () => {
     const fetcher = vi.fn().mockResolvedValue(json({ items: [], total: 0, page: 1, page_size: 25 }))
     vi.stubGlobal('fetch', fetcher)

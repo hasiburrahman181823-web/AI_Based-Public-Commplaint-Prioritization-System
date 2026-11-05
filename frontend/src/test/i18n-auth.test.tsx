@@ -16,6 +16,13 @@ function SessionProbe() {
     <button onClick={logout}>Log out</button></>
 }
 
+function CitizenProbe() {
+  const { citizen, citizenToken, citizenRegister, citizenLogout } = useAuth()
+  return <><p>{citizenToken ? citizen?.email || 'Loading profile' : 'Signed out'}</p>
+    <button onClick={() => void citizenRegister({ email: 'citizen@example.test', password: 'synthetic-citizen-password', full_name: 'Synthetic User', phone: '+8801000000000' })}>Create citizen account</button>
+    <button onClick={citizenLogout}>Citizen sign out</button></>
+}
+
 describe('language and local preference', () => {
   it('detects representative Bangla, Banglish and English locally', () => {
     expect(detectLanguage('মিরপুর ১০-এ পানি নেই')).toBe('bn')
@@ -59,5 +66,24 @@ describe('administrator memory-only sessions', () => {
     expect(await screen.findByText('Signed in')).toBeVisible()
     fireEvent(window, new Event('nagarik:unauthorized'))
     expect(screen.getByText('Signed out')).toBeVisible()
+  })
+})
+
+describe('citizen tab session', () => {
+  it('keeps only the short-lived token in session storage, never profile data or credentials', async () => {
+    const response = {
+      access_token: 'synthetic-citizen-token', token_type: 'bearer', expires_in: 1800,
+      account: { id: 'citizen-id', email: 'citizen@example.test', full_name: 'Synthetic User', phone: '+8801000000000', created_at: '2026-11-01T00:00:00Z' },
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(response), { status: 201 })))
+    render(<AuthProvider><CitizenProbe /></AuthProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Create citizen account' }))
+    expect(await screen.findByText('citizen@example.test')).toBeVisible()
+    const stored = sessionStorage.getItem('nagarik:citizen-session') || ''
+    expect(stored).toContain('synthetic-citizen-token')
+    for (const privateValue of ['citizen@example.test', 'Synthetic User', '+8801000000000', 'synthetic-citizen-password']) {
+      expect(stored).not.toContain(privateValue)
+    }
+    expect(localStorage.length).toBe(0)
   })
 })

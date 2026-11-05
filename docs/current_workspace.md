@@ -108,3 +108,18 @@ complaints, expert labels or trained model artifacts.
 See [the frontend guide](phase7_frontend.md) for installation, build and workflow
 commands. The verification record distinguishes implementation checks from
 real-model accuracy and deployment testing.
+
+## Citizen account follow-up — 2026-11-05
+
+Citizen registration/sign-in and account-only complaint history have been added
+after the release described above. Anonymous submission and tracking remain
+available; staff access remains separate. Profile fields live in a dedicated
+account table and only signed-in submissions receive an ownership link.
+
+For this follow-up, all 37 frontend tests pass and the production frontend build
+passes locally. Python source compilation also passes. Backend pytest and the
+database migration comparison were not run locally because the available
+Windows Python package installation was interrupted by package-download and
+temporary-directory access failures. The checked-in GitHub CI workflow remains
+the required backend verification; the feature is not considered deployed
+until that check and the hosting deploys succeed.

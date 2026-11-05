@@ -31,12 +31,15 @@ from sqlalchemy.exc import SQLAlchemyError
 from backend.config import ROOT, Settings
 from backend.db import make_engine, make_session_factory
 from backend.ml_service import MLService
-from backend.models import AdminReview, AuditLog, Complaint, DuplicateGroup, new_id, utcnow
-from backend.responses import (AnalysisResponse, AnalyticsResponse, ComplaintPage, ComplaintView, GroupPage, GroupSplitResult,
-                               GroupView, HealthResponse, StatsResponse, TrackingResponse)
-from backend.schemas import (AdminLogin, AnalyzeRequest, ComplaintCreate, ComplaintPatch, DataDeletionRequest,
-                             GroupConfirm, GroupSplit, Status, TokenResponse, validate_submission)
-from backend.security import authenticate_admin, create_access_token, verify_access_token
+from backend.models import (AdminReview, AuditLog, CitizenAccount, CitizenComplaintLink, Complaint, DuplicateGroup,
+                            new_id, utcnow)
+from backend.responses import (AnalysisResponse, AnalyticsResponse, CitizenAccountView, CitizenAuthResponse,
+                               ComplaintPage, ComplaintView, GroupPage, GroupSplitResult, GroupView, HealthResponse,
+                               StatsResponse, TrackingResponse)
+from backend.schemas import (AdminLogin, AnalyzeRequest, CitizenLogin, CitizenRegister, ComplaintCreate, ComplaintPatch,
+                             DataDeletionRequest, GroupConfirm, GroupSplit, Status, TokenResponse, validate_submission)
+from backend.security import (authenticate_admin, create_access_token, create_citizen_access_token,
+                              hash_citizen_password, verify_access_token, verify_citizen_access_token, verify_password)
 from backend.retention import delete_complaints, purge_embedding_cache
 from ml.location import LocationGazetteer
 from ml.priority_rules import PriorityRules
@@ -234,14 +237,15 @@ def create_app(settings: Settings | None = None, ml_service=None, engine=None) -
     service = ml_service or MLService(settings)
     limiter = Limiter(key_func=get_remote_address, storage_uri=settings.rate_limit_storage_uri,
                       swallow_errors=False, headers_enabled=False)
-    bearer = HTTPBearer(auto_error=False, description="Admin JWT from POST /auth/token")
+    bearer = HTTPBearer(auto_error=False, description="Use POST /auth/token for staff or /auth/citizen/login/register for a citizen token; token audiences are separate.")
 
     @asynccontextmanager
     async def lifespan(app):
         try:
             with engine.connect() as connection:
                 tables = set(inspect(connection).get_table_names())
-                if not {"complaints", "duplicate_groups", "admin_reviews", "audit_log"} <= tables:
+                if not {"complaints", "duplicate_groups", "admin_reviews", "audit_log",
+                        "citizen_accounts", "citizen_complaint_links"} <= tables:
                     raise RuntimeError("Backend tables missing; run python -m alembic upgrade head")
                 if "contact" not in {column["name"] for column in inspect(connection).get_columns("complaints")}:
                     raise RuntimeError("Backend migration is not current; run python -m alembic upgrade head")
@@ -308,6 +312,28 @@ def create_app(settings: Settings | None = None, ml_service=None, engine=None) -
             return None
         return admin(credentials)
 
+    def citizen_id(credentials: HTTPAuthorizationCredentials | None, *, optional: bool = False):
+        if credentials is None:
+            if optional:
+                return None
+            raise HTTPException(401, "Sign in to your citizen account", headers={"WWW-Authenticate": "Bearer"})
+        if credentials.scheme.lower() != "bearer":
+            raise HTTPException(401, "Valid citizen token required", headers={"WWW-Authenticate": "Bearer"})
+        try:
+            identifier = verify_citizen_access_token(credentials.credentials, settings)
+        except ValueError as exc:
+            raise HTTPException(401, "Valid citizen token required", headers={"WWW-Authenticate": "Bearer"}) from exc
+        with factory() as session:
+            if session.get(CitizenAccount, identifier) is None:
+                raise HTTPException(401, "Citizen account is no longer available", headers={"WWW-Authenticate": "Bearer"})
+        return identifier
+
+    def citizen(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        return citizen_id(credentials)
+
+    def optional_citizen(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        return citizen_id(credentials, optional=True)
+
     def refresh_after_commit():
         try:
             with factory() as session:
@@ -326,6 +352,10 @@ def create_app(settings: Settings | None = None, ml_service=None, engine=None) -
         return {"id": new_id(), "text": text, "lang": payload.lang, "location": payload.location or "",
                 "timestamp": _iso(payload.timestamp) or ""}
 
+    def account_view(account):
+        return CitizenAccountView(id=account.id, email=account.email, full_name=account.full_name, phone=account.phone,
+                                  created_at=_iso(account.created_at))
+
     @app.post("/auth/token", response_model=TokenResponse, tags=["Admin authentication"])
     @limiter.limit(settings.login_rate_limit)
     def login(request: Request, payload: AdminLogin):
@@ -334,6 +364,72 @@ def create_app(settings: Settings | None = None, ml_service=None, engine=None) -
             raise HTTPException(401, "Invalid credentials", headers={"WWW-Authenticate": "Bearer"})
         token, seconds = create_access_token(settings.admin_username, settings)
         return TokenResponse(access_token=token, expires_in=seconds)
+
+    @app.post("/auth/citizen/register", response_model=CitizenAuthResponse, status_code=201,
+              tags=["Citizen accounts"])
+    @limiter.limit(settings.login_rate_limit)
+    def citizen_register(request: Request, payload: CitizenRegister):
+        """Create a citizen profile; profile details are separate from complaint records."""
+        password_hash = hash_citizen_password(payload.password)
+        with _write_transaction(factory) as session:
+            if session.scalar(select(CitizenAccount.id).where(CitizenAccount.email == payload.email)) is not None:
+                raise HTTPException(409, "An account for this email may already exist")
+            account = CitizenAccount(id=new_id(), email=payload.email, password_hash=password_hash,
+                                     full_name=payload.full_name, phone=payload.phone)
+            session.add(account)
+            session.flush()
+            response_account = account_view(account)
+            account_id = account.id
+        token, seconds = create_citizen_access_token(account_id, settings)
+        return CitizenAuthResponse(access_token=token, expires_in=seconds, account=response_account)
+
+    @app.post("/auth/citizen/login", response_model=CitizenAuthResponse, tags=["Citizen accounts"])
+    @limiter.limit(settings.login_rate_limit)
+    def citizen_login(request: Request, payload: CitizenLogin):
+        """Sign in using a citizen-only JWT audience and the shared rate limit."""
+        with factory() as session:
+            account = session.scalar(select(CitizenAccount).where(CitizenAccount.email == payload.email))
+            # Verify against a real Argon2 hash either way so the response does
+            # not reveal whether an email has an account through an easy timing check.
+            password_hash = account.password_hash if account is not None else settings.admin_password_hash
+            password_matches = verify_password(payload.password, password_hash)
+            if account is None or not password_matches:
+                raise HTTPException(401, "Invalid email or password", headers={"WWW-Authenticate": "Bearer"})
+            response_account = account_view(account)
+            account_id = account.id
+        token, seconds = create_citizen_access_token(account_id, settings)
+        return CitizenAuthResponse(access_token=token, expires_in=seconds, account=response_account)
+
+    @app.get("/auth/citizen/me", response_model=CitizenAccountView, tags=["Citizen accounts"])
+    def citizen_profile(account_id: str = Depends(citizen)):
+        with factory() as session:
+            account = session.get(CitizenAccount, account_id)
+            if account is None:
+                raise HTTPException(401, "Citizen account is no longer available")
+            return account_view(account)
+
+    @app.get("/auth/citizen/complaints", response_model=ComplaintPage, tags=["Citizen accounts"])
+    def citizen_complaints(account_id: str = Depends(citizen), page: int = Query(1, ge=1),
+                           page_size: int = Query(25, ge=1, le=100)):
+        """List only reports linked to the authenticated account, including its private contact field."""
+        with factory() as session:
+            condition = CitizenComplaintLink.account_id == account_id
+            total = session.scalar(select(func.count()).select_from(CitizenComplaintLink).where(condition))
+            rows = session.execute(
+                select(Complaint, DuplicateGroup.version)
+                .join(CitizenComplaintLink, CitizenComplaintLink.complaint_id == Complaint.id)
+                .outerjoin(DuplicateGroup, Complaint.group_id == DuplicateGroup.id)
+                .where(condition)
+                .order_by(Complaint.created_at.desc(), Complaint.id)
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+            items = []
+            for complaint, group_version in rows:
+                item = _complaint_response(complaint, group_version, own=True)
+                item["contact"] = complaint.contact
+                items.append(item)
+            return {"items": items, "total": total, "page": page, "page_size": page_size}
 
     @app.post("/analyze", tags=["Citizen"], response_model=AnalysisResponse, response_model_exclude_unset=True)
     @limiter.limit(settings.analysis_rate_limit)
@@ -345,7 +441,7 @@ def create_app(settings: Settings | None = None, ml_service=None, engine=None) -
 
     @app.post("/complaints", status_code=201, tags=["Citizen"], response_model=ComplaintView, response_model_exclude_unset=True)
     @limiter.limit(settings.submission_rate_limit)
-    def submit(request: Request, payload: ComplaintCreate):
+    def submit(request: Request, payload: ComplaintCreate, account_id: str | None = Depends(optional_citizen)):
         """Persist a report and propose membership only after area/time guards."""
         record = validated_record(payload)
         with service.lock:
@@ -374,8 +470,10 @@ def create_app(settings: Settings | None = None, ml_service=None, engine=None) -
                                       area_id=result.get("area_id"), location=payload.location, contact=payload.contact, timestamp=payload.timestamp,
                                       group_id=group.id, source_report_id=record["id"], analysis=deepcopy(result))
                 session.add(complaint)
+                if account_id is not None:
+                    session.add(CitizenComplaintLink(complaint_id=complaint.id, account_id=account_id))
                 session.flush()
-                _audit(session, request, "anonymous", "complaint_submit", "complaint", complaint.id,
+                _audit(session, request, account_id or "anonymous", "complaint_submit", "complaint", complaint.id,
                        {"status": complaint.status, "group_id": group.id, "area_id": complaint.area_id,
                         "review_required": complaint.review_required})
                 response = _complaint_response(complaint, group.version, own=True)

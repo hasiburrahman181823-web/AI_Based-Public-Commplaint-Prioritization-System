@@ -109,6 +109,47 @@ class TokenResponse(StrictPayload):
     expires_in: int = Field(gt=0)
 
 
+class CitizenRegister(StrictPayload):
+    email: str = Field(min_length=6, max_length=254)
+    password: str = Field(min_length=10, max_length=256)
+    full_name: str | None = Field(default=None, max_length=120)
+    phone: str | None = Field(default=None, max_length=32)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value):
+        value = value.strip().casefold()
+        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]{2,}", value):
+            raise ValueError("Enter a valid email address")
+        return value
+
+    @field_validator("full_name", "phone")
+    @classmethod
+    def trim_profile_fields(cls, value, info):
+        if value is None:
+            return None
+        value = unicodedata.normalize("NFKC", value).strip()
+        if any(unicodedata.category(char) == "Cc" for char in value):
+            raise ValueError("Profile fields cannot contain control characters")
+        maximum = 120 if info.field_name == "full_name" else 32
+        if len(value) > maximum:
+            raise ValueError(f"{info.field_name.replace('_', ' ').capitalize()} must be at most {maximum} characters")
+        return value or None
+
+
+class CitizenLogin(StrictPayload):
+    email: str = Field(min_length=6, max_length=254)
+    password: str = Field(min_length=1, max_length=256)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value):
+        value = value.strip().casefold()
+        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]{2,}", value):
+            raise ValueError("Enter a valid email address")
+        return value
+
+
 class ReviewPayload(StrictPayload):
     expected_version: StrictInt = Field(ge=1)
     reason: str = Field(min_length=3, max_length=2000)
